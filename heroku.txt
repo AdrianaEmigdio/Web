@@ -1,0 +1,6 @@
+cd C:\user\003858123\Desktop\JavaScript\turma_devops
+
+heroku git:remote -a valida-cpf-dev-adriana
+
+cd C:\user\003858123\Desktop\JavaScript\turma_devops
+git push heroku master 
