@@ -1,0 +1,1380 @@
+function exportarCSV(){
+    var strCSV = "";
+    for (i=0;i<listaCSV.length; i++){
+        var ag = listaCSV[i];
+        strCSV = strCSV + ag.dataAgendamento + ";" +
+                          ag.horaAgendamento + ";" +
+                          ag.agencia.nome + ";" +
+                          ag.nomeCliente + ";" +
+                          ag.emailCliente + ";" +
+                          ag.celularCliente + ";" +
+                          ag.observacao + "\n";
+    }
+    var hiddenElement = document.createElement('a');
+    hiddenElement.href = 'data:text/csv;charset=iso9660,' + encodeURI(strCSV);
+    hiddenElement.target = '_blank';
+    hiddenElement.download = 'agendamentos.csv';
+    hiddenElement.click();
+}
+
+
+
+
+
+<?php include_once("index.html"); ?>
+
+https://github.com/professorisidro/validacpf_front
+
+https://joaopaulors.wordpress.com/2018/01/18/como-gerar-csv-em-javascript/
+
+
+
+/*  funcao do logout */
+
+function logout(){
+  localStorage.removeItem("userSCHED");
+ window.location = "index.html";
+}
+
+
+
+// botao pra exportar PDF
+function geraPDF(){
+    window.print();
+}
+
+
+
+
+<link rel="stylesheet" href="relatorio.css">
+
+// relatorio.css
+.linharelatorio{
+    border: 1px solid black;
+}
+
+
+
+
+
+
+function preencheRelatorio(lista){
+    var rel = "";
+    for (i=0; i<lista.length; i++){
+        var ag = lista[i];
+
+        rel = rel + `<div class="row linharelatorio">
+                        <div class="col-xs-6 col-sm-6 col-md-2 col-lg-1 col-xl-2">
+                           ${ag.dataAgendamento}
+                        </div>
+                        <div class="col-xs-6 col-sm-6 col-md-2 col-lg-1 col-xl-1">
+                           ${ag.horaAgendamento}
+                        </div>
+                        <div class="col-xs-12 col-sm-12 col-md-8 col-lg-4 col-xl-4">
+                           ${ag.nomeCliente}
+                        </div>
+                        <div class="col-xs-6 col-sm-6 col-md-6 col-lg-3 col-xl-3">
+                           ${ag.emailCliente}
+                        </div>
+                        <div class="col-xs-6 col-sm-6 col-md-6 col-lg-3 col-xl-2">
+                           ${ag.celularCliente}
+                        </div>
+                        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                           Agencia: ${ag.agencia.nome}
+                        </div>
+                        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                           ${ag.observacao}
+                        </div>
+                    </div>`;
+    }
+    document.getElementById("relatorio").innerHTML = rel;
+
+}
+==============
+
+
+function gerarRelatorio(){
+    // antes de mais nada....
+    var opcao = 0;
+    var opAg, opData, opCli;
+    var paramData = "0000-00-00";
+    var paramNome = "***";
+    var paramAgen = 0;
+    if (document.getElementById("chkAgencia").checked){
+        opAg = 1;
+        paramAgen = parseInt(document.getElementById("txtAgencia").value);
+    }
+    else{
+        opAg = 0;
+    }
+
+    if (document.getElementById("chkData").checked){
+        opData = 2;
+        paramData = document.getElementById("txtData").value;
+    }
+    else{
+        opData = 0;
+    }
+
+    if (document.getElementById("chkCliente").checked){
+        opCli = 4;
+        paramNome = document.getElementById("txtCliente").value;
+    }
+    else{
+        opCli = 0;
+    }
+
+    opcao = opAg + opData + opCli;
+    console.log("Opcao selecionada = "+opcao);
+
+    var url = "http://localhost:8080/agendamentos?mode="+opcao+"&dataAg="+paramData+"&idAgencia="+paramAgen+"&nome="+paramNome;
+    console.log(url);
+
+    fetch(url)
+      .then(res => res.json())
+      .then(lista => preencheRelatorio(lista));
+}
+
+
+
+=======================
+
+
+@RestController
+@CrossOrigin("*")
+public class AgendamentoController {
+
+	@Autowired
+	private AgendamentoDAO dao;
+	
+	@PostMapping("/novoagendamento")
+	public ResponseEntity<Agendamento> novoAgendamento(@RequestBody Agendamento novo){
+		try {
+			dao.save(novo);
+			return ResponseEntity.status(201).body(novo);
+		}
+		catch(Exception ex) {
+			return ResponseEntity.badRequest().build();
+		}
+	}
+	
+	@GetMapping("/agendamentos")
+	public ArrayList<Agendamento> buscar(@RequestParam int mode, 
+			                             @RequestParam String nome, 
+			                             @RequestParam String dataAg, 
+			                             @RequestParam int idAgencia){
+		Agencia ag;
+		ArrayList<Agendamento> lista=null;
+		LocalDate data;
+		
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+		switch(mode) {
+		case 0:
+			lista = (ArrayList<Agendamento>)dao.findAll();
+			break;
+		case 1:
+			ag = new Agencia();
+			ag.setId(idAgencia);
+			lista = dao.findAllByAgencia(ag);
+			break;
+		case 2:
+			data = LocalDate.parse(dataAg, formatter); 
+			lista = dao.findAllByDataAgendamento(data);
+			break;
+		case 3:
+			ag = new Agencia();
+			ag.setId(idAgencia);
+			data = LocalDate.parse(dataAg, formatter);
+			lista = dao.findAllByDataAgendamentoAndAgencia(data, ag);
+			break;
+		case 4:
+			lista = dao.findAllByNomeClienteContains(nome);
+			break;
+		case 5:
+			ag = new Agencia();
+			ag.setId(idAgencia);
+			lista = dao.findAllByAgenciaAndNomeClienteContains(ag, nome);
+			break;
+		case 6:
+			data = LocalDate.parse(dataAg, formatter);
+			lista = dao.findAllByDataAgendamentoAndNomeClienteContains(data, nome);
+			break;
+		case 7:
+			ag = new Agencia();
+			ag.setId(idAgencia);
+			data = LocalDate.parse(dataAg, formatter);
+			lista = dao.findAllByAgenciaAndDataAgendamentoAndNomeClienteContains(ag, data, nome);
+			break;
+		}
+				
+		return lista;
+	}
+	
+}
+
+
+
+
+
+/**********************
+public interface AgendamentoDAO extends CrudRepository<Agendamento, Integer> {
+	
+	public ArrayList<Agendamento> findAllByDataAgendamento(LocalDate data);
+	public ArrayList<Agendamento> findAllByNomeClienteContains(String nome);
+	
+	public ArrayList<Agendamento> findAllByAgencia(Agencia agencia);
+	public ArrayList<Agendamento> findAllByDataAgendamentoAndAgencia(LocalDate data, Agencia agencia); 
+	public ArrayList<Agendamento> findAllByDataAgendamentoAndNomeClienteContains(LocalDate data, String cliente);
+    public ArrayList<Agendamento> findAllByAgenciaAndNomeClienteContains(Agencia agencia, String cliente);
+    public ArrayList<Agendamento> findAllByAgenciaAndDataAgendamentoAndNomeClienteContains(Agencia agencia, LocalDate data, String cliente);
+}
+
+
+
+
+
+
+
+** metodo buscar do AGendamentoController
+
+@GetMapping("/agendamentos")
+	public ArrayList<Agendamento> buscar(@RequestParam int mode, 
+			                             @RequestParam String nome, 
+			                             @RequestParam LocalDate data, 
+			                             @RequestParam int idAgencia){
+		
+		ArrayList<Agendamento> lista=null;
+		switch(mode) {
+		case 0:
+			lista = (ArrayList<Agendamento>)dao.findAll();
+			break;
+		case 1:
+		case 2:
+			lista = dao.findAllByDataAgendamento(data);
+			break;
+		case 3:
+		case 4:
+			lista = dao.findAllByNomeClienteContains(nome);
+			break;
+		case 5:
+		case 6:
+		case 7:
+		}
+		
+		
+		
+		return lista;
+	}
+
+
+
+*** metodos do amgentamento DAO
+	public ArrayList<Agendamento> findAllByDataAgendamento(LocalDate data);
+	public ArrayList<Agendamento> findAllByNomeClienteContains(String nome);
+
+
+
+
+
+<link rel="stylesheet" href="relatorio.css">
+
+.linharelatorio{
+    border: 1px solid black;
+}
+
+
+function preencheRelatorio(lista){
+    var rel = "";
+    for (i=0; i<lista.length; i++){
+        var ag = lista[i];
+
+        rel = rel + `<div class="row linharelatorio">
+                        <div class="col-xs-6 col-sm-6 col-md-2 col-lg-1 col-xl-2">
+                           ${ag.dataAgendamento}
+                        </div>
+                        <div class="col-xs-6 col-sm-6 col-md-2 col-lg-1 col-xl-1">
+                           ${ag.horaAgendamento}
+                        </div>
+                        <div class="col-xs-12 col-sm-12 col-md-8 col-lg-4 col-xl-4">
+                           ${ag.nomeCliente}
+                        </div>
+                        <div class="col-xs-6 col-sm-6 col-md-6 col-lg-3 col-xl-3">
+                           ${ag.emailCliente}
+                        </div>
+                        <div class="col-xs-6 col-sm-6 col-md-6 col-lg-3 col-xl-2">
+                           ${ag.celularCliente}
+                        </div>
+                        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                           Agencia: ${ag.agencia.nome}
+                        </div>
+                        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                           ${ag.observacao}
+                        </div>
+                    </div>`;
+    }
+    document.getElementById("relatorio").innerHTML = rel;
+
+}
+=========================================
+
+
+fetch("http://localhost:8080/agendamentos")
+      .then(res => res.json())
+      .then(lista => preencheRelatorio(lista));
+
+
+============= RELATORIO.HTML ================
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="text/javascript" src="relatorio.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css"
+        integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+    <title>.: Relatorio de Agendamentos :. </title>
+</head>
+
+<body onload="validaUser()">
+
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h3>.: Relatorio de Agendamentos :.</h3>
+            </div>
+        </div>
+
+        <!-- linha que corresponde aos dados do usuario -->
+        <div class="row">
+            <div class="col-xs-12 col-sm-12 col-md-4 col-lg-4 col-xl-4" id="fotoUser">
+                **Aqui vai a foto do usuario ***
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-8 col-lg-8 col-xl-8" id="bioUser">
+                *** aqui vai a biografia do usuario ***
+            </div>
+        </div>
+
+        <!-- div do filtro-->
+        <label for="filtro">Selecione seu relatorio</label>
+        <div id="filtro">
+            <div class="row">
+                <div class="col-3">
+                    <div class="form-group form-check">
+                        <input type="checkbox" class="form-check-input" id="chkAgencia">
+                        <label class="form-check-label" for="chkAgencia">Agencia</label>
+                    </div>
+                </div>
+                <div class="col-9" id="selectAgencia">
+                    *** aqui vai o select da agencia ***
+
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-3">
+                    <div class="form-group form-check">
+                        <input type="checkbox" class="form-check-input" id="chkData">
+                        <label class="form-check-label" for="chkData">Data</label>
+                    </div>
+                </div>
+                <div class="col-9">
+                    <input type="date" class="form-control" id="txtData">
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-3">
+                    <div class="form-group form-check">
+                        <input type="checkbox" class="form-check-input" id="chkCliente">
+                        <label class="form-check-label" for="chkCliente">Cliente</label>
+                    </div>
+                </div>
+                <div class="col-9">
+                    <input type="text" id="txtCliente" class="form-control">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <button type="button" class="btn btn-primary" onclick="gerarRelatorio()">Gerar Relatório</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- div do relatorio-->
+        <div id="relatorio">
+
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>
+=============/ RELATORIO.HTML ================
+
+
+============= RELATORIO.JS ================
+function validaUser(){
+
+    var user = localStorage.getItem("userSCHED");
+
+    if (!user){  //se o objeto nao existe no localStorage, redireciona para o index
+        window.location = "index.html";
+    }
+
+    var userObj = JSON.parse(user); // "desconverto" a String JSON para um objeto javascript
+
+    document.getElementById("fotoUser").innerHTML = `<img src="${userObj.linkFoto}" width="100%">`;
+    document.getElementById("bioUser").innerHTML = `<h4> ${userObj.nome} </h4>
+                                                    <p> Email: ${userObj.email} </p>
+                                                    <p> Racf : ${userObj.racf} </p>
+                                                    `;
+    carregaAgencias();
+}
+
+
+function carregaAgencias(){
+    // 
+
+    /*
+    pensando "estruturado"
+    res = fetch("http://localhost:8080/agencias)
+    lista = res.json();
+    preenche(lista);
+    */
+    fetch("http://localhost:8080/agencias")
+         .then(res => res.json())   // se eu receber uma resposta, vou ter q extrair o JSON da resposta
+         .then(lista => preenche(lista)) // se der cert, passo isso para uma função que irá gerar dinamicamente meu select
+}
+
+function preenche(lista){
+
+    var htmlSelect = `<select id="txtAgencia" class="form-control" oninput="montahoras()">`;
+
+    for (i=0; i<lista.length; i++){
+        var ag = lista[i]; // apenas para facilitar a manipulacao
+        htmlSelect = htmlSelect + `<option value="${ag.id}">${ag.nome}</option>`;
+    }
+    htmlSelect = htmlSelect + `</select>`;
+    document.getElementById("selectAgencia").innerHTML =htmlSelect;
+}
+
+function gerarRelatorio(){
+    // antes de mais nada....
+    var opcao = 0;
+    var opAg, opData, opCli;
+    if (document.getElementById("chkAgencia").checked){
+        opAg = 1;
+    }
+    else{
+        opAg = 0;
+    }
+
+    if (document.getElementById("chkData").checked){
+        opData = 2;
+    }
+    else{
+        opData = 0;
+    }
+
+    if (document.getElementById("chkCliente").checked){
+        opCli = 4;
+    }
+    else{
+        opCli = 0;
+    }
+
+    opcao = opAg + opData + opCli;
+    console.log("Opcao selecionada = "+opcao);
+
+}
+============= /RELATORIO.JS ================
+
+create database proj_agendamento;
+
+use proj_agendamento;
+
+create table itmn032_agencia(
+   id integer not null auto_increment,
+   nome_agencia varchar(100),
+   hora_inicio  integer,
+   hora_fim     integer,
+   
+   constraint pk_agencia primary key (id)
+);
+
+create table itmn032_agendamento(
+   num_seq integer not null auto_increment,
+   nome_cli  varchar(100),
+   email_cli varchar(100),
+   celular_cli varchar(20),
+   data_agendamento date,
+   hora_agendamento varchar(10),
+   observacao varchar(255),
+   id_agencia integer not null,
+   constraint pk_agendamento primary key (num_seq),
+   constraint fk_agencia foreign key (id_agencia) references itmn032_agencia(id)
+);
+
+create table tbl_usuario(
+   id_user   integer not null auto_increment,
+   nome      varchar(100),
+   email     varchar(100),
+   racf      varchar(7),
+   senha     varchar(50),
+   link_foto varchar(255),
+   
+   constraint pk_usuario primary key(id_user)
+);
+
+insert into tbl_usuario values (null, 'Professor Isidro', 'fernando@fernando.com','1234567',
+            '1234','https://avatars2.githubusercontent.com/u/6184696?s=460&v=4');
+            
+select * from  tbl_usuario ;     
+
+select * from itmn032_agendamento;
+
+delete from itmn032_agendamento;
+insert into itmn032_agencia values
+        (null, '0123 - PAB Zezinho Magalhaes',10,14),
+        (null, '0124 - Agencia Hogwarts', 10,14),
+        (null, '9877 - Agencia Death Star',10,14),
+        (null, '9991 - Agencia Minas Tirith' , 10, 14),
+        (null, '8172 - Agencia Mordor', 10, 14),
+        (null, '1271 - Agencia Springfield', 10,14);
+      
+ select * from  itmn032_agencia;    
+
+===========================================================
+function cadastrar(){
+    var txtNomeCli  = document.getElementById("txtNome").value;
+    var txtEmailCli = document.getElementById("txtEmail").value;
+    var txtCelCli   = document.getElementById("txtTelefone").value;
+    var txtDataCli  = document.getElementById("txtData").value;
+    var txtAgencia  = document.getElementById("txtAgencia").value;
+    var txtHoraIni  = document.getElementById("txtHoraInicio").value;
+    var txtObs      = document.getElementById("txtObservacao").value;
+
+    var msgBody = {
+        nomeCliente : txtNomeCli,
+        emailCliente : txtEmailCli,
+        celularCliente : txtCelCli,
+        dataAgendamento : txtDataCli,
+        horaAgendamento : txtHoraIni,
+        observacao : txtObs,
+        agencia : {
+            id : parseInt(txtAgencia)
+        }
+    };
+
+    var cabecalho = {
+        method : "POST",
+        body : JSON.stringify(msgBody),
+        headers : {
+            "content-type" : "application/json"
+        }
+    };
+
+    fetch("http://localhost:8080/novoagendamento",cabecalho)
+        .then(res => trataResultado(res));
+}
+
+function trataResultado(res){
+    if (res.status == 201){
+        alert("Solicitacao de agendamento Efetivada!")
+    }
+    else{
+        alert("ERRO ao atender solicitacao");
+    }
+}
+
+
+
+========================================================
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css"
+        integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+    
+    <script type="text/javascript" src="agendamento.js"></script>
+    <title>.: Agendamento :.</title>
+</head>
+
+<body onload="carregaAgencias()">
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h3> Agende seu atendimento </h3>
+            </div>
+        </div>
+
+        <!-- aqui começa o formulario -->
+        <div class="row">
+            <div class="col-12">
+                <div class="form-group">
+                    <label for="txtNome">Nome do Cliente</label>
+                    <input type="text" class="form-control" id="txtNome">
+                  </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="form-group">
+                    <label for="txtEmail">Email do Cliente</label>
+                    <input type="email" class="form-control" id="txtEmail">
+                  </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="form-group">
+                    <label for="txtTelefone">Telefone / Whatsapp do Cliente</label>
+                    <input type="text" class="form-control" id="txtTelefone">
+                  </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="txtData">Data</label>
+                    <input type="date" class="form-control" id="txtData">
+                  </div>
+            </div>
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="selectAgencia">Agencia</label>
+                    <div id="selectAgencia">***AQUI VAI A AGENCIA***</div>
+                  </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="divHoraInicial">Hora Inicial</label>
+                    <div id="divHoraInicial">HH:MM</div>
+                  </div>
+            </div>
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="selectAgencia">Hora Final</label>
+                    <input type="text" id="txtHoraFim" class="form-control" readonly>
+                  </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="form-group">
+                    <label for="txtObservacao">Observações</label>
+                    <input type="text" class="form-control" id="txtObservacao">
+                  </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <button onclick="cadastrar()" class="btn btn-primary" >Cadastrar Agendamento</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>
+
+
+***********************************************
+
+
+{
+    "nomeCliente": "Isidro",
+    "emailCliente":"isidro@isidro.com",
+    "celularCliente":"987654321",
+    "dataAgendamento": "2020-11-30",
+    "horaAgendamento": "10:00",
+    "observacao":"Isidro é velho e tem mau humor. Sirvam cafe.",
+    "agencia": {
+        "id": 1
+    }
+}
+
+-------------------------
+
+
+
+
+@RestController
+@CrossOrigin("*")
+public class AgendamentoController {
+
+	@Autowired
+	private AgendamentoDAO dao;
+	
+        @PostMapping("/novoagendamento")
+	public ResponseEntity<Agendamento> novoAgendamento(@RequestBody Agendamento novo){
+		try {
+			dao.save(novo);
+			return ResponseEntity.status(201).body(novo);
+		}
+		catch(Exception ex) {
+			return ResponseEntity.badRequest().build();
+		}
+	}
+}
+
+
+
+
+***************************
+
+function carregaAgencias(){
+    // 
+
+    /*
+    pensando "estruturado"
+    res = fetch("http://localhost:8080/agencias)
+    lista = res.json();
+    preenche(lista);
+    */
+    fetch("http://localhost:8080/agencias")
+         .then(res => res.json())   // se eu receber uma resposta, vou ter q extrair o JSON da resposta
+         .then(lista => preenche(lista)) // se der cert, passo isso para uma função que irá gerar dinamicamente meu select
+}
+
+
+
+
+
+
+
+
+
+function preenche(lista){
+
+    var htmlSelect = `<select id="txtAgencia" class="form-control" oninput="montahoras()">`;
+
+    for (i=0; i<lista.length; i++){
+        var ag = lista[i]; // apenas para facilitar a manipulacao
+        htmlSelect = htmlSelect + `<option value="${ag.id}">${ag.nome}</option>`;
+    }
+    htmlSelect = htmlSelect + `</select>`;
+    document.getElementById("selectAgencia").innerHTML =htmlSelect;
+}
+
+function montahoras(){
+    var horaInicial = 10;
+    var horaFinal   = 14;
+    var htmlHora = `<select id="txtHoraInicio" class="form-control" oninput="gerahorafinal()">`;
+
+    for (hora = horaInicial ; hora < horaFinal; hora++){
+        htmlHora = htmlHora + `<option value="${hora}:00">${hora}:00</option>
+                               <option value="${hora}:30">${hora}:30</option>`;
+    }
+    htmlHora = htmlHora + `<option value="${hora}:00">${hora}:00</option>
+                         </select>`;
+    document.getElementById("divHoraInicial").innerHTML = htmlHora;
+}
+
+function gerahorafinal(){
+    var horaInicial = document.getElementById("txtHoraInicio").value;
+    console.log("Hora selecionada = "+horaInicial);
+    var hI = parseInt(horaInicial.substr(0,2));
+    var mI = parseInt(horaInicial.substr(3,4));
+    if (mI == 0){
+        mI = 30;
+    }
+    else {
+        mI = "00";
+        hI = hI+1;
+    }
+    document.getElementById("txtHoraFim").value = hI+":"+mI;
+}
+
+********************************
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css"
+        integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+    
+    <script type="text/javascript" src="agendamento.js"></script>
+    <title>.: Agendamento :.</title>
+</head>
+
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h3> Agende seu atendimento </h3>
+            </div>
+        </div>
+
+        <!-- aqui começa o formulario -->
+        <div class="row">
+            <div class="col-12">
+                <div class="form-group">
+                    <label for="txtNome">Nome do Cliente</label>
+                    <input type="text" class="form-control" id="txtNome">
+                  </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="form-group">
+                    <label for="txtEmail">Email do Cliente</label>
+                    <input type="email" class="form-control" id="txtEmail">
+                  </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="form-group">
+                    <label for="txtTelefone">Telefone / Whatsapp do Cliente</label>
+                    <input type="text" class="form-control" id="txtTelefone">
+                  </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="txtData">Data</label>
+                    <input type="date" class="form-control" id="txtData">
+                  </div>
+            </div>
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="selectAgencia">Agencia</label>
+                    <div id="selectAgencia">***AQUI VAI A AGENCIA***</div>
+                  </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="divHoraInicial">Hora Inicial</label>
+                    <div id="divHoraInicial">HH:MM</div>
+                  </div>
+            </div>
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="selectAgencia">Hora Final</label>
+                    <input type="text" id="txtHoraFim" class="form-control" readonly>
+                  </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <button class="btn btn-primary">Cadastrar Agendamento</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+
+====================================================
+
+function validaUser(){
+
+    var user = localStorage.getItem("userSCHED");
+
+    if (!user){  //se o objeto nao existe no localStorage, redireciona para o index
+        window.location = "index.html";
+    }
+
+    var userObj = JSON.parse(user); // "desconverto" a String JSON para um objeto javascript
+
+    document.getElementById("fotoUser").innerHTML = `<img src="${userObj.linkFoto}" width="100%">`;
+    document.getElementById("bioUser").innerHTML = `<h4> ${userObj.nome} </h4>
+                                                    <p> Email: ${userObj.email} </p>
+                                                    <p> Racf : ${userObj.racf} </p>
+                                                    `;
+
+}
+------
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="text/javascript" src="relatorio.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css"
+        integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+    <title>.: Relatorio de Agendamentos :. </title>
+</head>
+
+<body onload="validaUser()">
+
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h3>.: Relatorio de Agendamentos :.</h3>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-xs-12 col-sm-12 col-md-4 col-lg-4 col-xl-4" id="fotoUser">
+                **Aqui vai a foto do usuario ***
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-8 col-lg-8 col-xl-8" id="bioUser">
+                *** aqui vai a biografia do usuario ***
+            </div>
+
+        </div>
+
+        
+
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>
+
+
+--------------- FIM DO RELATORIO.HTML ------------
+
+https://github.com/professorisidro/front_projetoagendamento
+http://www.professorisidro.com.br/wp-content/uploads/web.zip
+https://github.com/professorisidro/projetoagendamento
+
+
+
+https://getbootstrap.com/docs/4.5/components/forms/
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>.: Sistema de Agendamentos :.</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css"
+        integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+</head>
+
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h3>Sistema de Agendamento - Identifique-se</h3>
+            </div>
+        </div>
+
+        
+
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+@PostMapping("/login")
+	public ResponseEntity<Usuario> logarUsuario(@RequestBody Usuario userLogin) {
+
+
+		}
+		
+	}
+
+
+
+
+--- usuarioDAO
+
+public interface UsuarioDAO extends CrudRepository<Usuario, Integer>{
+	
+	public Usuario findByEmailAndSenha(String email, String senha);
+
+}
+
+
+
+
+-- usuarioController
+
+@RestController
+public class UsuarioController {
+
+	@Autowired
+	UsuarioDAO dao;
+	
+	/*  O método logarUsuario vai receber um JSON correspondente ao objeto Usuario
+	 *  vindo no corpo da requisicao através do método POST
+	 *  Este método POST é o que permite ao FRONT END enviar dados para o BACK END
+	 */
+	@PostMapping("/login")
+	public Usuario logarUsuario(@RequestBody Usuario userLogin) {
+		Usuario retorno = 
+	}
+}
+
+-------------------------------------------
+
+
+
+
+
+
+
+@RestController
+public class UsuarioController {
+
+	/*  O método logarUsuario vai receber um JSON correspondente ao objeto Usuario
+	 *  vindo no corpo da requisicao através do método POST
+	 *  Este método POST é o que permite ao FRONT END enviar dados para o BACK END
+	 */
+	@PostMapping("/login")
+	public void logarUsuario(@RequestBody Usuario userLogin) {
+		System.out.println("DEBUG  - Dados recebidos ");
+		System.out.println("         Email: "+userLogin.getEmail());
+		System.out.println("         Senha: "+userLogin.getSenha());
+	}
+}
+
+
+
+
+
+https://docs.spring.io/spring-data/jpa/docs/current/reference/html/#jpa.query-methods
+
+
+@RestController
+public class AgenciaController {
+
+	/* A anotação @Autowired indica que a referencia DAO do tipo AgenciaDAO será INJETADA
+	 * o que é isso? Eu (programador) vou delegar a busca e instanciação de algum objeto
+	 * que implemente esta interface para a máquina virtual. 
+	 * 
+	 * 
+	 */
+	
+	@Autowired
+	private AgenciaDAO dao;
+	
+	@GetMapping("/agencias")
+	public ArrayList<Agencia> recuperarTodas(){
+		ArrayList<Agencia> lista;   // declarei a lista
+		lista = (ArrayList<Agencia>)dao.findAll(); // recuperei os registros do banco e armaezenei na lista (SELECT)
+		return lista; // retorno os dados
+	}
+}
+
+
+
+
+
+import org.springframework.data.repository.CrudRepository;
+
+import br.com.isidrocorp.agendamento.model.Agencia;
+
+
+/* quando declaramos a interface, temos nesta interface uma declaração de que
+ * vamos utilizar as operações básicas do CRUD (através da CrudRepository), indicando
+ * que este CRUD irá manipular objetos do tipo Agencia
+ */
+public interface AgenciaDAO extends CrudRepository<Agencia, Integer>{
+
+}
+
+
+
+http://www.professorisidro.com.br/wp-content/uploads/web/SpringBoot_Estrutura.pdf
+
+
+
+package br.com.isidrocorp.agendamento.model;
+
+import java.time.LocalDate;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+@Entity
+@Table(name="itmn032_agendamento")
+public class Agendamento {
+	
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name="num_seq")
+	private int       numSeq;
+	@Column(name="nome_cli", length=100)
+	private String    nomeCliente;
+	@Column(name="email_cli", length=100)
+	private String    emailCliente;
+	@Column(name="celular_cli", length=20)
+	private String    celularCliente;
+
+	@Column(name="data_agendamento")
+	private LocalDate dataAgendamento;
+
+	@Column(name="hora_agendamento", length=10)
+	private String    horaAgendamento;
+
+	@Column(name="observacao", length=255)
+	private String    observacao;
+
+	@ManyToOne
+	@JoinColumn(name="id_agencia")
+	private Agencia   agencia;
+
+}
+
+
+
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+@Entity
+@Table(name="itmn032_agencia")
+public class Agencia {
+	
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name="id")
+	private int id;
+	
+	@Column(name="nome_agencia", length=100)
+	private String nome;
+	
+	@Column(name="hora_inicio")
+	private int horaInicio;
+	
+	@Column(name="hora_fim")
+	private int horaFim;
+}
+
+
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+@Entity                    // esta anotação diz que a classe Usuário é uma classe armazenável em banco
+@Table(name="tbl_usuario") // a anotacão @Table permite definir o nome da tabela que existe no banco
+public class Usuario {
+	
+	@Id              // @Id indica que o atributo corresponde a uma PK na tabela
+	@GeneratedValue(strategy=GenerationType.IDENTITY) // indica que o campo da tabela é AUTO_INCREMENT
+	@Column(name="id_user")  // defino o nome da coluna na tabela
+	private int id;
+	
+	@Column(name="nome", length = 100)
+	private String nome;
+	
+	@Column(name="email", length = 100)
+	private String email;
+	
+	@Column(name="racf", length = 7)
+	private String racf;
+	
+	@Column(name="senha", length = 50)
+	private String senha;
+	
+	@Column(name="link_foto", length = 255)
+	private String linkFoto;
+
+}
+
+:::: WEB ::::
+Link do Trello https://trello.com/invite/b/yGy2YnH8/374ab60aa80e073a282f3beaddfa97d2/turma-11-a
+http://www.professorisidro.com.br/wp-content/uploads/web/SpringBootJPA.pdf
+
+
+:::: TABELAS DO BANCO DE DADOS ::::
+
+create table itmn032_agencia(
+   id integer not null auto_increment,
+   nome_agencia varchar(100),
+   hora_inicio  integer,
+   hora_fim     integer,
+   
+   constraint pk_agencia primary key (id)
+);
+
+create table itmn032_agendamento(
+   num_seq integer not null auto_increment,
+   nome_cli  varchar(100),
+   email_cli varchar(100),
+   celular_cli varchar(20),
+   data_agendamento date,
+   hora_agendamento varchar(10),
+   observacao varchar(255),
+   id_agencia integer not null,
+   constraint pk_agendamento primary key (num_seq),
+   constraint fk_agencia foreign key (id_agencia) references itmn032_agencia(id)
+);
+
+create table tbl_usuario(
+   id_user   integer not null auto_increment,
+   nome      varchar(100),
+   email     varchar(100),
+   racf      varchar(7),
+   senha     varchar(50),
+   link_foto varchar(255),
+   
+   constraint pk_usuario primary key(id_user)
+);
+
+
+--- registros ----
+insert into tbl_usuario values (null, 'Professor Isidro', 'isidro@isidro.com','1234567',
+            '1234','https://avatars2.githubusercontent.com/u/6184696?s=460&v=4');
+
+
+
+--- application.properties ----
+# para a conexao com o banco, são necessários 4 parâmetros obrigatorios e 1 opcional
+
+# 1 - nome do usuario do banco
+spring.datasource.username = root
+
+# 2 - senha do banco
+spring.datasource.password = mysql
+
+# 3 - url da base de dados
+spring.datasource.url = jdbc:mysql://localhost:3306/proj_agendamento?useTimezone=true&serverTimezone=UTC
+
+# 4 - o "dialeto"
+spring.jpa.properties.hibernate.dialect = org.hibernate.dialect.MySQL8Dialect
+
+# 5 (opcional) - mostrar no console os SQL que são gerados automaticamente
+spring.jpa.show_sql = true
+
+
+
+:::: Aulas ::::
+http://www.torneseumprogramador.com.br/
+http://www.torneseumprogramador.com.br/busca?q=deploy
+http://www.torneseumprogramador.com.br/aula?id=JiyKMqVfP1M&aula=20&tipo=back-end&professor=Danilo
+http://www.torneseumprogramador.com.br/aulas/integracao-continua
+http://www.torneseumprogramador.com.br/aulas/cache
+http://www.torneseumprogramador.com.br/busca?q=bdd
+http://www.torneseumprogramador.com.br/busca?q=tdd
+
+
+:::: Serviços ::::
+https://heroku.com/
+https://github.com/
+https://www.freemysqlhosting.net/
+
+
+:::: Projetos ::::
+https://github.com/Didox/turma11a-itau
+https://github.com/Didox/kitutes-donate-treinamento-itau
+https://github.com/Didox/app_um_minuto_cliente_produto
+https://github.com/Didox/validar-cpf-back-spring-boot
+https://github.com/Didox/validar-cpf-front-js-vanilla
+https://github.com/torneseumprogramador/projeto-itaumon-api-itau-java-spring
+https://github.com/torneseumprogramador/itaumonfront-spring-boot
+https://github.com/Didox/turma_devops
+
+
+:::::: Scripts :::::
+rake db:migrate
+git clone URL
+cd diretorio
+code .
+heroku login -i
+heroku create java-spring-danilo
+git push heroku master
+git push heroku main
+git add .
+git commit -am "criando rota"
+git push heroku master
+npm install
+npm start
+npm run tdd
+npm run bdd
+
+cd diretorio
+mkdir pasta1
+
+build > tdd > bdd > dev > homolog, prod
+git pull --force
+npm install
+npm run tdd
+START /B npm start 2>&1
+npm run bdd
+
+
+
+::::::: Downloads ::::::
+https://devcenter.heroku.com/articles/heroku-cli
+https://nodejs.org/en/download/
+https://www.jenkins.io/download/
